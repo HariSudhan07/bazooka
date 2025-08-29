@@ -1,3 +1,4 @@
+# backend/llm_service.py
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -13,14 +14,17 @@ VALIDATION_CHECKS = {
     "Front": [
         "Confirm 'Ages 4+' appears at the bottom (except for Bazooka gum).",
         "Confirm Net Weight is at the bottom.",
-        "Confirm unit count of products is at the bottom."
+        "Confirm unit count of products is at the bottom.",
+        "If the OCR text contains 'Gelatin' or 'Gelatine' (case-insensitive, and allow for minor OCR spelling variations like 'Gelatan', 'Gelatln', etc.) in the ingredients list, AND the packaging also shows any Kosher symbol (e.g., 'U', 'OU', 'Kosher', 'K'), then this must be marked as FAIL."
+
     ],
     "Back": [
-        "Include manufacturer information after legal IP line: 'Distributed by The Bazooka Companies, LLC, Scranton, PA 18505. For questions, comments, and tracking label information, call 1-888-204-4124 or visit www.bazookacandybrands.com.'",
+        "Include manufacturer/distributor information after legal IP line.",
         "Confirm 'Ages 4+' appears below manufacturer info.",
         "Confirm NFP (Nutrition Facts Panel) is present if not exempt as a small package.",
         "Confirm NFP contains ingredients statements.",
-        "Back of package should contain country of origin below manufacturer contact information: 'Made in [country]'."
+        "Back of package should contain country of origin below manufacturer contact information:.",
+        "If the OCR text contains 'Gelatin' or 'Gelatine' (case-insensitive, and allow for minor OCR spelling variations like 'Gelatan', 'Gelatln', etc.) in the ingredients list, AND the packaging also shows any Kosher symbol (e.g., 'U', 'OU', 'Kosher', 'K'), then this must be marked as FAIL."
     ]
 }
 
@@ -44,7 +48,7 @@ def validate_text_with_llm(ocr_text: str, selected_group: str = "All"):
     # Build prompt
     prompt = f"""
 You are a compliance validator for candy packaging labels. 
-You will receive OCR extracted text from an image of a Bazooka candy package. 
+You will receive OCR extracted text only from an image of a Bazooka candy package. 
 Check the text against the following rules:
 
 Rules to check:
@@ -56,7 +60,11 @@ OCR text:
 \"\"\"
 
 Return a JSON object with each rule, validation result (PASS/FAIL), and reasoning.
-Additionally, check the OCR text for spelling, typos, or grammar errors. If found, list corrections.
+Additionally, check the OCR text for typos **only in the actual packaging text **
+- Ignore proofing or print-related text such as: "PROOF #", "REEZE", "TABLE", "DIELINE", "COLOR", crop marks, or any other non-packaging annotations. 
+- If no spelling issues are found, return an empty list.
+- If the OCR text contains 'Gelatin' or 'Gelatine' (case-insensitive, and allow for minor OCR spelling variations like 'Gelatan', 'Gelatln', etc.) in the ingredients list, AND the packaging also shows any Kosher symbol (e.g., 'U', 'OU', 'Kosher', 'K'), then this must be marked as FAIL.
+
 
 Format the JSON response exactly like this:
 
@@ -80,7 +88,7 @@ Format the JSON response exactly like this:
 """
 
     # Run Gemini Flash 2.5
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
 
     return response.text

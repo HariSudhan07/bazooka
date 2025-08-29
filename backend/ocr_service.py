@@ -1,11 +1,15 @@
+# backend/ocr_service.py
 import boto3
 import json
 from pdf2image import convert_from_path
 from dotenv import load_dotenv
+from PIL import Image
 import os
 
 # Load environment variables from .env
 load_dotenv()
+
+Image.MAX_IMAGE_PIXELS = None  
 
 def pdf_to_image(pdf_path, output_path="page.png"):
     """
